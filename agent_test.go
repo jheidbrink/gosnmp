@@ -27,11 +27,11 @@ func TestSnmpAgent(t *testing.T) {
 	g.Version = Version2c
 	g.Timeout = time.Duration(time.Second * 3)
 	g.Retries = 0
-	g.Logger = log.New(os.Stdout, "", 0)
+	g.Logger = NewLogger(log.New(os.Stdout, "", 0))
 	a := &GoSNMPAgent{
 		Port:           161,
 		IPAddr:         "0.0.0.0",
-		Logger:         log.New(os.Stdout, "", 0),
+		Logger:         NewLogger(log.New(os.Stdout, "", 0)),
 		Snmp:           g,
 		SupportSnmpMIB: true,
 	}
@@ -71,13 +71,13 @@ func TestSnmpAgent(t *testing.T) {
 		}
 	}
 	a.Acl = "127.0.0.2"
-	result, err2 = g.Get(oids)
+	_, err2 = g.Get(oids)
 	if err2 == nil {
 		t.Fatal("Deny ACL err=nil")
 	}
 	t.Logf("ACL err=%v", err2)
 	a.Acl = "127.0.0.2,127.0.0.1"
-	result, err2 = g.Get(oids)
+	_, err2 = g.Get(oids)
 	if err2 != nil {
 		t.Fatalf("Allow ACL err=%v", err)
 	}

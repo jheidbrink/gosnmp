@@ -49,11 +49,7 @@ import (
 	"strconv"
 	"time"
 
-<<<<<<< HEAD
 	g "github.com/twsnmp/gosnmp"
-=======
-	g "github.com/gosnmp/gosnmp"
->>>>>>> upstream/master
 )
 
 func main() {

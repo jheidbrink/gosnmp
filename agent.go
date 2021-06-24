@@ -134,7 +134,7 @@ func (a *GoSNMPAgent) findMib(oid string, bNext bool) (string, Asn1BER, interfac
 		return cmpOid(noid, a.mibList[i].oid) <= 0
 	})
 	if i >= len(a.mibList) {
-		return "", Integer, nil, fmt.Errorf("Not found")
+		return "", Integer, nil, fmt.Errorf("not found")
 	}
 	if cmpOid(noid, a.mibList[i].oid) == 0 {
 		if !bNext {
@@ -142,7 +142,7 @@ func (a *GoSNMPAgent) findMib(oid string, bNext bool) (string, Asn1BER, interfac
 		}
 		i++
 		if i >= len(a.mibList) {
-			return "", Integer, nil, fmt.Errorf("Not found")
+			return "", Integer, nil, fmt.Errorf("not found")
 		}
 	}
 	oid = a.mibList[i].strOid
@@ -151,9 +151,7 @@ func (a *GoSNMPAgent) findMib(oid string, bNext bool) (string, Asn1BER, interfac
 
 // Start : start snmp agent
 func (a *GoSNMPAgent) Start() error {
-	if a.Logger == nil {
-		a.Logger = log.New(ioutil.Discard, "", 0)
-	}
+	a.Logger = NewLogger(log.New(ioutil.Discard, "", 0))
 	a.Stop()
 	var err error
 	a.conn, err = net.ListenUDP("udp",
