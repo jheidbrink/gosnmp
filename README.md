@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 gosnmp for TWSNMP
 ===
 
@@ -35,8 +34,6 @@ to help coordinate replacement maintainers.
 
 Sonia Hamilton, sonia@snowfrog.net, Australia.
 
-=======
->>>>>>> upstream/master
 gosnmp
 ======
 
@@ -79,11 +76,8 @@ GoSNMP has the following **helper** functions:
 * **ToBigInt** - treat returned values as `*big.Int`
 * **Partition** - facilitates dividing up large slices of OIDs
 
-<<<<<<< HEAD
 **twsnmp/gosnmp** has completely diverged from **soniah/gosnmp**, your code
-=======
 **gosnmp/gosnmp** has completely diverged from **alouca/gosnmp**, your code
->>>>>>> upstream/master
 will require modification in these (and other) locations:
 
 * the **Get** function has a different method signature
@@ -122,20 +116,12 @@ This will completely disable the logging of the gosnmp library, even if the logg
 # Installation
 
 ```shell
-<<<<<<< HEAD
 go get github.com/twsnmp/gosnmp
-=======
-go get github.com/gosnmp/gosnmp
->>>>>>> upstream/master
 ```
 
 # Documentation
 
-<<<<<<< HEAD
 http://godoc.org/github.com/twsnmp/gosnmp
-=======
-https://pkg.go.dev/github.com/gosnmp/gosnmp
->>>>>>> upstream/master
 
 # Usage
 
@@ -189,7 +175,6 @@ Running this example gives the following output (from my printer):
 * `examples/example3.go` demonstrates `SNMPv3`
 * `examples/trapserver.go` demonstrates writing an SNMP v2c trap server
 
-<<<<<<< HEAD
 SNMP Agent
 ----------
 
@@ -232,9 +217,6 @@ func getSysDescr(oid string) interface{} {
 
 MIB Parser
 ----------
-=======
-# MIB Parser
->>>>>>> upstream/master
 
 I don't have any plans to write a mib parser. Others have suggested
 https://github.com/sleepinggenius2/gosmi
@@ -246,15 +228,9 @@ below).
 
 If you've never contributed to a Go project before, here is an example workflow.
 
-<<<<<<< HEAD
 1. [fork this repo on the GitHub webpage](https://github.com/twsnmp/gosnmp/fork)
 1. `go get github.com/twsnmp/gosnmp`
 1. `cd $GOPATH/src/github.com/twsnmp/gosnmp`
-=======
-1. [fork this repo on the GitHub webpage](https://github.com/gosnmp/gosnmp/fork)
-1. `go get github.com/gosnmp/gosnmp`
-1. `cd $GOPATH/src/github.com/gosnmp/gosnmp`
->>>>>>> upstream/master
 1. `git remote rename origin upstream`
 1. `git remote add origin git@github.com:<your-github-username>/gosnmp.git`
 1. `git checkout -b development`
@@ -320,13 +296,8 @@ The following BER types have been implemented:
 
 Local testing in Docker
 ```shell
-<<<<<<< HEAD
 docker build -t twsnmp/gosnmp:latest .
 docker run -it twsnmp/gosnmp:latest
-=======
-docker build -t gosnmp/gosnmp:latest .
-docker run -it gosnmp/gosnmp:latest
->>>>>>> upstream/master
 ```
 
 or
@@ -382,11 +353,7 @@ To check test coverage:
 ```shell
 go get github.com/axw/gocov/gocov
 go get github.com/matm/gocov-html
-<<<<<<< HEAD
 gocov test github.com/twsnmp/gosnmp | gocov-html > gosnmp.html && firefox gosnmp.html &
-=======
-gocov test github.com/gosnmp/gosnmp | gocov-html > gosnmp.html && firefox gosnmp.html &
->>>>>>> upstream/master
 ```
 
 
