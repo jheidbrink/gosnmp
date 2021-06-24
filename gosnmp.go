@@ -1,4 +1,4 @@
-// Copyright 2012-2020 The GoSNMP Authors. All rights reserved.  Use of this
+// Copyright 2012 The GoSNMP Authors. All rights reserved.  Use of this
 // source code is governed by a BSD-style license that can be found in the
 // LICENSE file.
 
@@ -10,14 +10,12 @@ package gosnmp
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"math"
 	"math/big"
-	"math/rand"
 	"net"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -32,6 +30,10 @@ const (
 	// Base OID for MIB-2 defined SNMP variables
 	baseOid = ".1.3.6.1.2.1"
 
+	// Max oid sub-identifier value
+	// https://tools.ietf.org/html/rfc2578#section-7.1.3
+	MaxObjectSubIdentifierValue = 4294967295
+
 	// Java SNMP uses 50, snmp-net uses 10
 	defaultMaxRepetitions = 50
 
@@ -39,62 +41,83 @@ const (
 	udp = "udp"
 )
 
-// GoSNMP represents GoSNMP library state
+// GoSNMP represents GoSNMP library state.
 type GoSNMP struct {
-	mu sync.Mutex
-
-	// Conn is net connection to use, typically established using GoSNMP.Connect()
+	// Conn is net connection to use, typically established using GoSNMP.Connect().
 	Conn net.Conn
 
-	// Target is an ipv4 address
+	// Target is an ipv4 address.
 	Target string
 
-	// Port is a port
+	// Port is a port.
 	Port uint16
 
 	// Transport is the transport protocol to use ("udp" or "tcp"); if unset "udp" will be used.
 	Transport string
 
-	// Community is an SNMP Community string
+	// Community is an SNMP Community string.
 	Community string
 
-	// Version is an SNMP Version
+	// Version is an SNMP Version.
 	Version SnmpVersion
 
-	// Context allows for overall deadlines and cancellation
+	// Context allows for overall deadlines and cancellation.
 	Context context.Context
 
-	// Timeout is the timeout for one SNMP request/response
+	// Timeout is the timeout for one SNMP request/response.
 	Timeout time.Duration
 
-	// Set the number of retries to attempt
+	// Set the number of retries to attempt.
 	Retries int
 
-	// Double timeout in each retry
+	// Double timeout in each retry.
 	ExponentialTimeout bool
 
-	// Logger is the GoSNMP.Logger to use for debugging. If nil, debugging
-	// output will be discarded (/dev/null). For verbose logging to stdout:
-	// x.Logger = log.New(os.Stdout, "", 0)
+	// Logger is the GoSNMP.Logger to use for debugging.
+	// For verbose logging to stdout:
+	// x.Logger = NewLogger(log.New(os.Stdout, "", 0))
+	// For Release builds, you can turn off logging entirely by using the go build tag "gosnmp_nodebug" even if the logger was installed.
 	Logger Logger
 
-	// loggingEnabled is set if the Logger isn't nil, otherwise any logging calls
-	// are ignored via shortcircuit
-	loggingEnabled bool
+	// Message hook methods allow passing in a functions at various points in the packet handling.
+	// For example, this can be used to collect packet timing, add metrics, or implement tracing.
+	/*
 
-	// MaxOids is the maximum number of oids allowed in a Get()
+	 */
+	// PreSend is called before a packet is sent.
+	PreSend func(*GoSNMP)
+
+	// OnSent is called when a packet is sent.
+	OnSent func(*GoSNMP)
+
+	// OnRecv is called when a packet is received.
+	OnRecv func(*GoSNMP)
+
+	// OnRetry is called when a retry attempt is done.
+	OnRetry func(*GoSNMP)
+
+	// OnFinish is called when the request completed.
+	OnFinish func(*GoSNMP)
+
+	// MaxOids is the maximum number of oids allowed in a Get().
 	// (default: MaxOids)
 	MaxOids int
 
 	// MaxRepetitions sets the GETBULK max-repetitions used by BulkWalk*
 	// Unless MaxRepetitions is specified it will use defaultMaxRepetitions (50)
 	// This may cause issues with some devices, if so set MaxRepetitions lower.
-	// See comments in https://github.com/soniah/gosnmp/issues/100
-	MaxRepetitions uint8
+	// See comments in https://github.com/gosnmp/gosnmp/issues/100
+	MaxRepetitions uint32
 
-	// NonRepeaters sets the GETBULK max-repeaters used by BulkWalk*
+	// NonRepeaters sets the GETBULK max-repeaters used by BulkWalk*.
 	// (default: 0 as per RFC 1905)
 	NonRepeaters int
+
+	// UseUnconnectedUDPSocket if set, changes net.Conn to be unconnected UDP socket.
+	// Some multi-homed network gear isn't smart enough to send SNMP responses
+	// from the address it received the requests on. To work around that,
+	// we open unconnected UDP socket and use sendto/recvfrom.
+	UseUnconnectedUDPSocket bool
 
 	// netsnmp has '-C APPOPTS - set various application specific behaviours'
 	//
@@ -103,29 +126,32 @@ type GoSNMP struct {
 	// - 'p,i,I,t,E' -> pull requests welcome
 	AppOpts map[string]interface{}
 
-	// Internal - used to sync requests to responses
+	// Internal - used to sync requests to responses.
 	requestID uint32
-	random    *rand.Rand
+	random    uint32
 
 	rxBuf *[rxBufSize]byte // has to be pointer due to https://github.com/golang/go/issues/11728
 
-	// MsgFlags is an SNMPV3 MsgFlags
+	// MsgFlags is an SNMPV3 MsgFlags.
 	MsgFlags SnmpV3MsgFlags
 
-	// SecurityModel is an SNMPV3 Security Model
+	// SecurityModel is an SNMPV3 Security Model.
 	SecurityModel SnmpV3SecurityModel
 
-	// SecurityParameters is an SNMPV3 Security Model parameters struct
+	// SecurityParameters is an SNMPV3 Security Model parameters struct.
 	SecurityParameters SnmpV3SecurityParameters
 
-	// ContextEngineID is SNMPV3 ContextEngineID in ScopedPDU
+	// ContextEngineID is SNMPV3 ContextEngineID in ScopedPDU.
 	ContextEngineID string
 
 	// ContextName is SNMPV3 ContextName in ScopedPDU
 	ContextName string
 
-	// Internal - used to sync requests to responses - snmpv3
+	// Internal - used to sync requests to responses - snmpv3.
 	msgID uint32
+
+	// Internal - we use to send packets if using unconnected socket.
+	uaddr *net.UDPAddr
 }
 
 // Default connection settings
@@ -252,26 +278,23 @@ func (x *GoSNMP) connect(networkSuffix string) error {
 	}
 
 	x.Transport += networkSuffix
-	err = x.netConnect()
-	if err != nil {
-		return fmt.Errorf("error establishing connection to host: %s", err.Error())
+	if err = x.netConnect(); err != nil {
+		return fmt.Errorf("error establishing connection to host: %w", err)
 	}
 
-	if x.random == nil {
-		x.random = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
+	if x.random == 0 {
+		n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt32)) // returns a uniform random value in [0, 2147483647].
+		if err != nil {
+			return fmt.Errorf("error occurred while generating random: %w", err)
+		}
+		x.random = uint32(n.Uint64())
 	}
-	// http://tools.ietf.org/html/rfc3412#section-6 - msgID only
-	// uses the first 31 bits
+	// http://tools.ietf.org/html/rfc3412#section-6 - msgID only uses the first 31 bits
 	// msgID INTEGER (0..2147483647)
-	x.msgID = uint32(x.random.Int31())
+	x.msgID = x.random
+
 	// RequestID is Integer32 from SNMPV2-SMI and uses all 32 bits
-	// TrueSpeed: However, some SNMP devices do not implement the spec properly,
-	// and get confused with negative integers. So we take care not to allow any
-	// numbers that are large enough to overflow.
-	// However: https://golang.org/pkg/math/rand/#Rand.Int31 says "Int31 returns a
-	// non-negative pseudo-random 31-bit integer as an int32". Perhaps this fix
-	// should be reworded?
-	x.requestID = uint32(x.random.Int31() / 2)
+	x.requestID = x.random
 
 	x.rxBuf = new([rxBufSize]byte)
 
@@ -283,20 +306,32 @@ func (x *GoSNMP) connect(networkSuffix string) error {
 func (x *GoSNMP) netConnect() error {
 	var err error
 	addr := net.JoinHostPort(x.Target, strconv.Itoa(int(x.Port)))
+
+	switch transport := x.Transport; transport {
+	case "udp", "udp4", "udp6":
+		if x.UseUnconnectedUDPSocket {
+			x.uaddr, err = net.ResolveUDPAddr(transport, addr)
+			if err != nil {
+				return err
+			}
+
+			// As far as I know, this should not be needed in production but only to
+			// work around tests: in tests we are opening fake destination with ends up
+			// being ipv4:0.0.0.0. You can't send packets from :: to 0.0.0.0.
+			if addr4 := x.uaddr.IP.To4(); addr4 != nil {
+				x.uaddr.IP = addr4
+				transport = "udp4"
+			}
+			x.Conn, err = net.ListenUDP(transport, nil)
+			return err
+		}
+	}
 	dialer := net.Dialer{Timeout: x.Timeout}
 	x.Conn, err = dialer.DialContext(x.Context, x.Transport, addr)
 	return err
 }
 
 func (x *GoSNMP) validateParameters() error {
-	if x.Logger == nil {
-		x.mu.Lock()
-		defer x.mu.Unlock()
-		x.Logger = log.New(ioutil.Discard, "", 0)
-	} else {
-		x.loggingEnabled = true
-	}
-
 	if x.Transport == "" {
 		x.Transport = udp
 	}
@@ -326,7 +361,7 @@ func (x *GoSNMP) validateParameters() error {
 	return nil
 }
 
-func (x *GoSNMP) mkSnmpPacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters uint8, maxRepetitions uint8) *SnmpPacket {
+func (x *GoSNMP) mkSnmpPacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters uint8, maxRepetitions uint32) *SnmpPacket {
 	var newSecParams SnmpV3SecurityParameters
 	if x.SecurityParameters != nil {
 		newSecParams = x.SecurityParameters.Copy()
@@ -343,7 +378,7 @@ func (x *GoSNMP) mkSnmpPacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters uint
 		ErrorIndex:         0,
 		PDUType:            pdutype,
 		NonRepeaters:       nonRepeaters,
-		MaxRepetitions:     maxRepetitions,
+		MaxRepetitions:     (maxRepetitions & 0x7FFFFFFF),
 		Variables:          pdus,
 	}
 }
@@ -401,7 +436,10 @@ func (x *GoSNMP) GetNext(oids []string) (result *SnmpPacket, err error) {
 // GetBulk sends an SNMP GETBULK request
 //
 // For maxRepetitions greater than 255, use BulkWalk() or BulkWalkAll()
-func (x *GoSNMP) GetBulk(oids []string, nonRepeaters uint8, maxRepetitions uint8) (result *SnmpPacket, err error) {
+func (x *GoSNMP) GetBulk(oids []string, nonRepeaters uint8, maxRepetitions uint32) (result *SnmpPacket, err error) {
+	if x.Version == Version1 {
+		return nil, fmt.Errorf("GETBULK not supported in SNMPv1")
+	}
 	oidCount := len(oids)
 	if oidCount > x.MaxOids {
 		return nil, fmt.Errorf("oid count (%d) is greater than MaxOids (%d)",
@@ -422,7 +460,7 @@ func (x *GoSNMP) GetBulk(oids []string, nonRepeaters uint8, maxRepetitions uint8
 // SnmpEncodePacket exposes SNMP packet generation to external callers.
 // This is useful for generating traffic for use over separate transport
 // stacks and creating traffic samples for test purposes.
-func (x *GoSNMP) SnmpEncodePacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters uint8, maxRepetitions uint8) ([]byte, error) {
+func (x *GoSNMP) SnmpEncodePacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters uint8, maxRepetitions uint32) ([]byte, error) {
 	err := x.validateParameters()
 	if err != nil {
 		return []byte{}, err
@@ -430,12 +468,14 @@ func (x *GoSNMP) SnmpEncodePacket(pdutype PDUType, pdus []SnmpPDU, nonRepeaters 
 
 	pkt := x.mkSnmpPacket(pdutype, pdus, nonRepeaters, maxRepetitions)
 
-	// Request ID is an atomic counter (started at a random value)
-	reqID := atomic.AddUint32(&(x.requestID), 1) // TODO: fix overflows
+	// Request ID is an atomic counter that wraps to 0 at max int32.
+	reqID := (atomic.AddUint32(&(x.requestID), 1) & 0x7FFFFFFF)
+
 	pkt.RequestID = reqID
 
 	if x.Version == Version3 {
-		msgID := atomic.AddUint32(&(x.msgID), 1) // TODO: fix overflows
+		msgID := (atomic.AddUint32(&(x.msgID), 1) & 0x7FFFFFFF)
+
 		pkt.MsgID = msgID
 
 		err = x.initPacket(pkt)
@@ -507,7 +547,7 @@ func (x *GoSNMP) SnmpDecodePacket(resp []byte) (*SnmpPacket, error) {
 	var cursor int
 	cursor, err = x.unmarshalHeader(resp, result)
 	if err != nil {
-		err = fmt.Errorf("unable to decode packet header: %s", err.Error())
+		err = fmt.Errorf("unable to decode packet header: %w", err)
 		return result, err
 	}
 
@@ -520,20 +560,16 @@ func (x *GoSNMP) SnmpDecodePacket(resp []byte) (*SnmpPacket, error) {
 
 	err = x.unmarshalPayload(resp, cursor, result)
 	if err != nil {
-		err = fmt.Errorf("unable to decode packet body: %s", err.Error())
+		err = fmt.Errorf("unable to decode packet body: %w", err)
 		return result, err
 	}
 
-	// if result == nil {
-	// 	err = fmt.Errorf("Unable to decode packet: no variables")
-	// 	return result, err
-	// }
 	return result, nil
 }
 
 // SetRequestID sets the base ID value for future requests
 func (x *GoSNMP) SetRequestID(reqID uint32) {
-	x.requestID = reqID
+	x.requestID = reqID & 0x7fffffff
 }
 
 // SetMsgID sets the base ID value for future messages

@@ -10,6 +10,60 @@
  
  * Fork from soniah/gosnmp
  * Add SNMP agent function
+## unreleased
+
+NOTE:
+
+* [CHANGE]
+* [FEATURE]
+* [ENHANCEMENT]
+* [BUGFIX]
+
+## v1.32.0
+
+NOTE: This release changes the Logger interface. The loggingEnabled variable has been deprecated.
+
+* [BUGFIX] marshal.go: improve packet validation and error handling #323
+* [BUGFIX] marshal.go: Fix on-error-continue flow in sendOneRequest #324
+* [BUGFIX] Fix SNMPv3 trap authentication #332
+* [CHANGE] New Logger interface has been implemented #329
+* [ENHANCEMENT] helper.go: Improved OID marshaling with sub-identifier validation as per rfc2578 section-3.5 #321
+* [ENHANCEMENT] Add rfc3412 report errors #333
+
+## v1.31.0
+
+* [BUGFIX] Add validation to prevent calling updatePktSecurityParameters with non v3 packet #251 #314
+* [ENHANCEMENT] walk.go: improve BulkWalk error handling #306
+* [ENHANCEMENT] return received SNMP error code immediately instead of waiting for timeout #319
+
+## v1.30.0
+
+NOTE: This release changes the MaxRepetitions type to uint32.
+
+* [BUGFIX] Add bounds checking for reqID and msgID #273
+* [FEATURE] New packet inspection hook methods for in-flight measurements #276
+* [ENHANCEMENT] Support for local e2e tests against net-snmpd #292
+* [CHANGE] Fix GetBulkRequest MaxRepetitions signedness issue in marshalPDU() #293
+* [CHANGE] mocks/gosnmp_mock.go: Update UnmarshalTrap mock base method #294
+* [BUGFIX] marshal.go: Fix signedness issue in marshalPDU() #295
+* [ENHANCEMENT] marshalPDU(): stricter integer conversion #301
+* [ENHANCEMENT] Use Go 1.13 error wrapping #304
+* [ENHANCEMENT] walk.go: improve BulkWalk error handling #306
+* [ENHANCEMENT] MaxRepetitions now allows values between 0..2147483647 and wraps to 0 at max int32.
+
+## v1.29.0
+
+NOTE: This release returns the OctetString []byte behavior for v1.26.0 and earlier.
+
+* [CHANGE] Return OctetString as []byte #264
+
+## v1.28.0
+
+This release updates the Go import path from `github.com/soniah/gosnmp`
+to `github.com/gosnmp/gosnmp`.
+
+* [CHANGE] Update project path #257
+* [ENHANCEMENT] Improve SNMPv3 trap support #253
 
 ## v1.27.0
 
@@ -42,7 +96,7 @@
 
 ## v1.23.0
 
-* BREAKING CHANGE: The mocks have been moved to `github.com/soniah/gosnmp/mocks`.
+* BREAKING CHANGE: The mocks have been moved to `github.com/gosnmp/gosnmp/mocks`.
   If you use them, you will need to adjust your imports.
 * bug fix: issue 170: No results when performing a walk starting on a leaf OID
 * bug fix: issue 210: Set function fails if value is an Integer
