@@ -1,3 +1,8 @@
+## v1.32.1
+
+* merge gosnmp/gosnmp@v1.32.0
+* fix agent
+
 ## v1.28.2
  
  * fix findMib for getnext
@@ -10,6 +15,8 @@
  
  * Fork from soniah/gosnmp
  * Add SNMP agent function
+
+## gosnmp/gosnmp
 ## unreleased
 
 NOTE:
