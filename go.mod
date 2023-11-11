@@ -1,4 +1,4 @@
-module github.com/twsnmp/gosnmp
+module github.com/jheidbrink/gosnmp
 
 go 1.14
 
