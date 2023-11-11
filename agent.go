@@ -241,6 +241,7 @@ func (a *GoSNMPAgent) process() {
 			continue
 		}
 		if errIndex != -1 {
+			a.Logger.Printf("snmpOutNoSuchNames is now %v", snmpOutNoSuchNames + 1)
 			snmpOutNoSuchNames++
 		}
 		if a.conn == nil {
