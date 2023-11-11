@@ -10,8 +10,6 @@ package gosnmp
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net"
 	"sort"
 	"strconv"
@@ -151,7 +149,6 @@ func (a *GoSNMPAgent) findMib(oid string, bNext bool) (string, Asn1BER, interfac
 
 // Start : start snmp agent
 func (a *GoSNMPAgent) Start() error {
-	a.Logger = NewLogger(log.New(ioutil.Discard, "", 0))
 	a.Stop()
 	var err error
 	a.conn, err = net.ListenUDP("udp",
